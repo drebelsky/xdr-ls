@@ -1,0 +1,129 @@
+use crate::ast::*;
+
+grammar;
+
+match {
+    // keywords
+    "case",
+    "const",
+    "default",
+    "enum",
+    "namespace",
+    "opaque",
+    "string",
+    "struct",
+    "switch",
+    "typedef",
+    "union",
+    "void",
+    // literal tokens
+    "(",
+    ")",
+    "*",
+    ",",
+    ":",
+    ";",
+    "<",
+    "=",
+    ">",
+    "[",
+    "]",
+    "{",
+    "}",
+} else {
+    r"(unsigned )?int|(unsigned )?hyper|float|double|quadruple|bool" => TYPE_SPEC
+} else {
+    r"[a-zA-Z][a-zA-Z_0-9]*" => IDENT,
+    r"-?[1-9][0-9]*|0x[A-Fa-f0-9]+|0[0-7]*" => CONST,
+} else {
+    // Things to skip
+    r"\s" => { }, // skip spaces; TODO: handle newline
+    // From lalrpop book, skip comments
+    r"//[^\n\r]*[\n\r]*" => { },
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },
+    // TODO: this is a little generous since xdrpp rerquires the % to be at the start of a line
+    r"%[^\n\r]*" => { }, // Skip things starting with `%` (for xdrpp compatibility)
+}
+
+Declaration: Declaration = {
+    <spec:TypeSpecifier> <id:Ident> => Declaration::Normal{<>},
+    <spec:TypeSpecifier> <id:Ident> "[" <size:Value> "]" => Declaration::FixedArr{<>},
+    <spec:TypeSpecifier> <id:Ident> "<" <size:Value?> ">" => Declaration::VarArr{<>},
+    "opaque" <id:Ident> "[" <size:Value> "]" => Declaration::FixedOpaque{<>},
+    "opaque" <id:Ident> "<" <size:Value?> ">" => Declaration::VarOpaque{<>},
+    "string" <id:Ident> "<" <size:Value?> ">" => Declaration::String{<>},
+    <spec:TypeSpecifier> "*" <id:Ident> => Declaration::Optional{<>},
+    "void" => Declaration::VOID,
+}
+
+Value: Value = {
+    CONST => Value::Const(<>.to_string()),
+    Ident => Value::Id(<>),
+}
+
+Constant: String = {
+    CONST => <>.to_string()
+}
+
+TypeSpecifier: TypeSpecifier = {
+    TYPE_SPEC => TypeSpecifier::BuiltIn(<>.to_string()),
+    "enum" <EnumBody> => TypeSpecifier::Enum(<>),
+    "struct" <StructBody> => TypeSpecifier::Struct(<>),
+    "union" <UnionBody> => TypeSpecifier::Union(<>),
+    Ident => TypeSpecifier::Ident(<>),
+}
+
+EnumAssign: EnumAssign = {
+    <id:Ident> "=" <val:Value> => EnumAssign{<>}
+}
+
+EnumBody: EnumBody = {
+    "{" <first:EnumAssign> <mut rest:("," <EnumAssign>)*>"}" => {
+        rest.insert(0, first);
+        EnumBody{body: rest}
+    }
+}
+
+StructBody: StructBody = {
+    "{" <body:(<Declaration> ";")+> "}" => StructBody{<>}
+}
+
+UnionBody: UnionBody = {
+    "switch" "(" <discriminant:BoxDeclaration> ")" "{"
+        <cases:CaseSpec+>
+        <default:("default" ":" <BoxDeclaration> ";")?>
+    "}" => UnionBody{<>}
+}
+
+BoxDeclaration: Box<Declaration> = {
+    Declaration => Box::new(<>),
+}
+
+CaseSpec: CaseSpec = {
+    <values:("case" <Value> ":")+> <decl: Declaration> ";" => CaseSpec{<>},
+}
+
+Definition: Definition = {
+    "const" <id:Ident> "=" <val:Constant> ";" => Definition::Constant{<>},
+    "typedef" <Declaration> ";" => Definition::TypeDef(<>),
+    "enum" <id:Ident> <body:EnumBody> ";" => Definition::Enum{<>},
+    "struct" <id:Ident> <body:StructBody> ";" => Definition::Struct{<>},
+    "union" <id:Ident> <body:UnionBody> ";" => Definition::Union{<>},
+}
+
+// Namespaces for xdrpp compatibility
+NSDefinition: Vec<Definition> = {
+    "namespace" IDENT "{" <Namespace> "}" => <>,
+    Definition => vec![<>],
+}
+Namespace: Vec<Definition> = {
+    <NSDefinition*> => <>.into_iter().flatten().collect(),
+}
+
+pub Specification: Specification = {
+   <defns:Namespace> => Specification{<>}
+}
+
+Ident: Identifier = {
+    <start:@L> <id:IDENT> <end:@R> => Identifier{id: id.to_string(), start, end}
+}

@@ -1,0 +1,12 @@
+[package]
+name = "xdr-lsp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+lalrpop-util = { version = "0.22.2", features = ["lexer"] }
+tokio = { version = "1.47.1", features = ["full"] }
+tower-lsp = "0.20.0"
+
+[build-dependencies]
+lalrpop = "0.22.2"
