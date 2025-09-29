@@ -1,8 +1,9 @@
 # xdr-lsp
 
-LSP for [RFC4506 XDR](https://datatracker.ietf.org/doc/html/rfc4506) files.
-Supports XDR files with [xdrpp](https://xdrpp.github.io/xdrpp/index.html)
-syntax extensions (line starting with `%` and `namespace` blocks).
+Language server for [RFC4506 XDR](https://datatracker.ietf.org/doc/html/rfc4506)
+files. Supports XDR files with
+[xdrpp](https://xdrpp.github.io/xdrpp/index.html) syntax extensions (lines
+starting with `%` and `namespace` blocks).
 
 ## Current features
 
