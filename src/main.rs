@@ -94,17 +94,17 @@ fn visit_identifiers_decl(
 ) {
     match decl {
         Declaration::Normal { spec, id } | Declaration::Optional { spec, id } => {
-            cb(id, in_defn);
             visit_identifiers_type(spec, cb);
+            cb(id, in_defn);
         }
         Declaration::FixedArr { spec, id, size } => {
-            cb(id, in_defn);
             visit_identifiers_type(spec, cb);
+            cb(id, in_defn);
             visit_identifiers_val(size, cb);
         }
         Declaration::VarArr { spec, id, size } => {
-            cb(id, in_defn);
             visit_identifiers_type(spec, cb);
+            cb(id, in_defn);
             if let Some(size) = size {
                 visit_identifiers_val(size, cb)
             }
@@ -216,6 +216,12 @@ fn parse_file(
             ref_locs.entry(id.id.clone()).or_default().push(loc);
         }
     });
+    let keys: Vec<_> = identifiers.keys().map(|k| *k).collect();
+    for key in keys {
+        if let Some(vec) = identifiers.get_mut(&key) {
+            vec.sort_by_key(|t| t.start);
+        }
+    }
     None
 }
 
