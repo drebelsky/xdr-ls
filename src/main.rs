@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -31,6 +31,9 @@ struct Backend {
     referenced_locs: Mutex<HashMap<String, Vec<Location>>>,
     // Used to find where identifiers are defined
     defn_locs: Mutex<HashMap<String, Location>>,
+
+    // Set of potential generated header files
+    header_files: Mutex<HashSet<PathBuf>>,
 }
 
 fn make_error(code: i64, message: &'static str) -> Error {
@@ -232,6 +235,7 @@ impl Backend {
             identifiers: Mutex::new(HashMap::new()),
             referenced_locs: Mutex::new(HashMap::new()),
             defn_locs: Mutex::new(HashMap::new()),
+            header_files: Mutex::new(HashSet::new()),
         }
     }
 
@@ -263,6 +267,15 @@ impl Backend {
     }
 }
 
+impl Backend {
+    async fn lookup_ident(&self, ident: &String) -> Option<GotoDefinitionResponse> {
+        match self.defn_locs.lock().await.get(ident) {
+            Some(loc) => Some(GotoDefinitionResponse::Scalar(loc.clone())),
+            None => None,
+        }
+    }
+}
+
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
@@ -289,6 +302,14 @@ impl LanguageServer for Backend {
         }
         let mut paths: Vec<PathBuf> = vec![];
         get_xdr_files(&uri, &mut |path| paths.push(path.to_path_buf()));
+        {
+            let mut header_files = self.header_files.lock().await;
+            for path in &paths {
+                let mut new_path = path.clone();
+                new_path.set_extension("h");
+                header_files.insert(new_path);
+            }
+        }
         {
             let mut identifiers = self.identifiers.lock().await;
             let mut refs = self.referenced_locs.lock().await;
@@ -328,15 +349,53 @@ impl LanguageServer for Backend {
             .uri
             .to_file_path()
         {
+            if let Some(ext) = path.extension()
+                && ext == "h"
+            {
+                if !self.header_files.lock().await.contains(&path) {
+                    return Ok(None);
+                }
+                if let Ok(file) = fs::read_to_string(path) {
+                    let pos = params.text_document_position_params.position;
+                    if let Some(line) = file.lines().nth(pos.line as usize) {
+                        let character = pos.character as usize;
+                        let mut start = 0;
+                        let mut end = 0;
+                        let mut in_ident = false;
+                        let mut ident: Option<String> = None;
+                        for (i, c) in line.char_indices() {
+                            if c.is_ascii_alphabetic() {
+                                if !in_ident {
+                                    in_ident = true;
+                                    start = i;
+                                }
+                                end = i;
+                            } else if in_ident {
+                                if c.is_ascii_digit() {
+                                    end = i
+                                } else {
+                                    in_ident = false;
+                                    if start <= character && character <= end {
+                                        ident = Some(line[start..=end].to_string());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if let Some(ident) = ident {
+                            return Ok(self.lookup_ident(&ident).await);
+                        }
+                    }
+                }
+                return Ok(None);
+            }
+
             match self
                 .get_ident_at(&path, params.text_document_position_params.position)
                 .await
             {
                 None => Ok(None),
-                Some(ident) => match self.defn_locs.lock().await.get(&ident) {
-                    Some(loc) => Ok(Some(GotoDefinitionResponse::Scalar(loc.clone()))),
-                    None => Ok(None),
-                },
+                Some(ident) => Ok(self.lookup_ident(&ident).await),
             }
         } else {
             Err(make_error(0, "Could not open file"))

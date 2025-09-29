@@ -8,6 +8,9 @@ starting with `%` and `namespace` blocks).
 ## Current features
 
 * [goto definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition)
+    * Note, the server will also attempt to respond to goto definition requests
+      in header files where replacing `.h` with `.x` results in one of the
+      known `.x` files.
 * [find references](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references)
 
 ## Known limitations
@@ -34,6 +37,54 @@ vim.lsp.config("xdr-ls", {
     cmd = {"xdr-ls"},
     filetypes = {"rpcgen"},
     root_markers = {".git/"}
+})
+vim.lsp.enable("xdr-ls")
+```
+
+If you want to also be able to use the goto definition/tagfunc for generated
+header files, you can adjust the config as follows.
+
+```lua
+vim.lsp.config("xdr-ls", {
+    cmd = {"xdr-ls"},
+    filetypes = {"rpcgen", "cpp"},
+    root_markers = {".git/"}
+})
+```
+
+If you also have `clangd` enabled, `vim.lsp.tagfunc()` might end up with the
+`clangd` result first. When trying to use `CTRL-]`, you can either then use
+`]t` (or `:tnext`) or you can set it up so that `x` files get priority for the
+tagfunc. (Useful things to look at for `:help` include `lsp-defaults` and
+`tagfunc`). For example,
+
+```lua
+function xdr_tagfunc(pattern, flags)
+    local orig = vim.lsp.tagfunc(pattern, flags)
+    local res = {}
+    for _, loc in ipairs(orig) do
+        -- TODO
+        if loc.filename:sub(-2) == ".x" then
+            table.insert(res, loc)
+        end
+    end
+    for _, loc in ipairs(orig) do
+        -- TODO
+        if loc.filename:sub(-2) ~= ".x" then
+            table.insert(res, loc)
+        end
+    end
+    return res
+end
+vim.lsp.config("xdr-ls", {
+    cmd = {"xdr-ls"},
+    filetypes = {"rpcgen", "cpp"},
+    root_markers = {".git/"},
+    on_attach = function(client, bufnr)
+        if vim.bo[bufnr].tagfunc == "v:lua.vim.lsp.tagfunc" then
+            vim.bo[bufnr].tagfunc = "v:lua.xdr_tagfunc"
+        end
+    end
 })
 vim.lsp.enable("xdr-ls")
 ```
