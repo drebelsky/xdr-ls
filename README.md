@@ -1,4 +1,4 @@
-# xdr-lsp
+# xdr-ls
 
 Language server for [RFC4506 XDR](https://datatracker.ietf.org/doc/html/rfc4506)
 files. Supports XDR files with
@@ -30,10 +30,10 @@ executable is somewhere in `$PATH` and that the XDR files you're looking at
 live in a git repo.
 
 ```lua
-vim.lsp.config("xdr-lsp", {
-    cmd = {"xdr-lsp"},
+vim.lsp.config("xdr-ls", {
+    cmd = {"xdr-ls"},
     filetypes = {"rpcgen"},
     root_markers = {".git/"}
 })
-vim.lsp.enable("xdr-lsp")
+vim.lsp.enable("xdr-ls")
 ```
