@@ -19,6 +19,7 @@ starting with `%` and `namespace` blocks).
 * Uses LSP `root_uri`.
 * Assumes all `.x` files within `root_uri` are XDR files.
 * Assumes all `.x` files are ASCII.
+* VS Code extension assumes generated header files live in an `xdr` folder.
 
 ## Building
 
