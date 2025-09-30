@@ -20,6 +20,7 @@ starting with `%` and `namespace` blocks).
 * Assumes all `.x` files within `root_uri` are XDR files.
 * Assumes all `.x` files are ASCII.
 * VS Code extension assumes generated header files live in an `xdr` folder.
+* Assumes identifiers are unique (if they're not, behavior is a little odd)
 
 ## Building
 
