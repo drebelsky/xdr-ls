@@ -88,3 +88,12 @@ vim.lsp.config("xdr-ls", {
 })
 vim.lsp.enable("xdr-ls")
 ```
+
+## Using in VS Code
+
+Once [built](#Building), make sure you have `xdr-ls` somewhere in your `$PATH`.
+Then, either build [xdr-ls-code](https://github.com/drebelsky/xdr-ls-code) from
+source and add the `.vsix` extension or download one of the pre-built `.vsix`s
+from the [releases page](https://github.com/drebelsky/xdr-ls-code/releases). In
+VS Code, open the extensions menu, and then click the three dots in the upper
+right of the pane and click "Install from VSIX...".
