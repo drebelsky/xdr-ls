@@ -63,6 +63,9 @@ tagfunc. (Useful things to look at for `:help` include `lsp-defaults` and
 ```lua
 function xdr_tagfunc(pattern, flags)
     local orig = vim.lsp.tagfunc(pattern, flags)
+    if orig == vim.NIL then
+        return vim.NIL
+    end
     local res = {}
     for _, loc in ipairs(orig) do
         -- TODO
